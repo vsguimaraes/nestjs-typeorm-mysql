@@ -4,12 +4,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JsonWebTokenError, JwtService } from '@nestjs/jwt';
-import { User } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthRegisterDTO } from './dto/auth-register-dto';
-import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
 import { MailerService } from '@nestjs-modules/mailer';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UserService } from '../user/user.service';
+import { User } from '../user/entity/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -18,9 +19,10 @@ export class AuthService {
 
   constructor(
     private readonly jwtService: JwtService,
-    private readonly prisma: PrismaService,
     private readonly userService: UserService,
     private readonly mailerService: MailerService,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   createToken(user: User) {
@@ -62,10 +64,8 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email,
-      },
+    const user = await this.usersRepository.findOneBy({
+      email,
     });
 
     if (!user) {
@@ -81,10 +81,8 @@ export class AuthService {
     }
   }
   async forget(email: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        email,
-      },
+    const user = await this.usersRepository.findOneBy({
+      email,
     });
 
     if (!user) {
@@ -113,7 +111,7 @@ export class AuthService {
       },
     });
 
-    return true;
+    return { status: true };
   }
   async reset(password: string, token: string) {
     try {
@@ -125,14 +123,11 @@ export class AuthService {
 
       password = await bcrypt.hash(password, await bcrypt.genSalt());
 
-      const user = await this.prisma.user.update({
-        data: {
-          password,
-        },
-        where: {
-          id: data.id,
-        },
+      await this.usersRepository.update(data.id, {
+        password,
       });
+
+      const user = await this.userService.findOne(Number(data.id));
 
       return this.createToken(user);
     } catch (e) {

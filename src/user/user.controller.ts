@@ -8,16 +8,19 @@ import {
   Patch,
   Post,
   Put,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { CreateUserDTO } from './dto/create-user.dto';
 import { UpdateUserPutDTO } from './dto/update-user-put.dto';
 import { UpdateUserPatchDTO } from './dto/update-user-patch.dto';
 import { UserService } from './user.service';
-import { LogInterceptor } from 'src/interceptors/log.interceptor';
-import { paramId } from 'src/decorators/param-id.decorator';
+import { LogInterceptor } from '../interceptors/log.interceptor';
+import { paramId } from '../decorators/param-id.decorator';
+import { AuthGuard } from '../guard/auth.guard';
 
 //@UseInterceptors(LogInterceptor) // interceptador que será executado a partir de qualquer rota users
+@UseGuards(AuthGuard)
 @Controller('users') // toda vez que chamar a rota users
 export class UserController {
   constructor(private readonly userService: UserService) {}

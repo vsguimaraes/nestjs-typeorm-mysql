@@ -15,18 +15,15 @@ import { AuthLoginDTO } from './dto/auth-login-dto';
 import { AuthRegisterDTO } from './dto/auth-register-dto';
 import { AuthForgetDTO } from './dto/auth-forget-dto';
 import { AuthResetDTO } from './dto/auth-reset-dto';
-import { UserService } from 'src/user/user.service';
 import { AuthService } from './auth.service';
-import { AuthGuard } from 'src/guard/auth.guard';
-import { User } from 'src/decorators/user.decorator';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { join } from 'path';
-import { FileService } from 'src/file/file.service';
+import { FileService } from '../file/file.service';
+import { AuthGuard } from '../guard/auth.guard';
+import { User } from '../decorators/user.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly userService: UserService,
     private readonly authService: AuthService,
     private readonly fileService: FileService,
   ) {}
@@ -58,16 +55,9 @@ export class AuthController {
   async uploadPhoto(@User() user, @UploadedFile() file: Express.Multer.File) {
     const fileNameArr = file.originalname.split('.');
     const ext = fileNameArr[fileNameArr.length - 1];
-    const path = join(
-      __dirname,
-      '..',
-      '..',
-      'storage',
-      'img',
-      `photo-${user.id}.${ext}`,
-    );
+    const fileName = `photo-${user.id}.${ext}`;
     try {
-      await this.fileService.upload(path, file);
+      await this.fileService.upload(file, fileName);
     } catch (e) {
       throw new BadRequestException(e);
     }

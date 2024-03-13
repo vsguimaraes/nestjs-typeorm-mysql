@@ -1,37 +1,48 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDTO } from './dto/create-user.dto';
 import { UpdateUserPatchDTO } from './dto/update-user-patch.dto';
 import { UpdateUserPutDTO } from './dto/update-user-put.dto';
 import * as bcrypt from 'bcrypt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entity/user.entity';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+  ) {}
 
   async create({ name, email, password, birthAt }: CreateUserDTO) {
-    /* em caso de return eu posso ocultar o await que ele funciona da mesma forma */
+    if (await this.usersRepository.existsBy({ email })) {
+      throw new BadRequestException(
+        'Este e-mail já está cadastrado em nossa base!',
+      );
+    }
     password = await bcrypt.hash(password, await bcrypt.genSalt());
-    return this.prisma.user.create({
-      data: {
-        name,
-        email,
-        password,
-        birthAt: birthAt ? new Date(birthAt) : null,
-      },
+    const user = await this.usersRepository.create({
+      name,
+      email,
+      password,
+      birthAt: birthAt ? new Date(birthAt) : null,
     });
+    /* em caso de return eu posso ocultar o await que ele funciona da mesma forma */
+    return this.usersRepository.save(user);
   }
 
   async findAll() {
-    return this.prisma.user.findMany();
+    return this.usersRepository.find();
   }
 
   async findOne(id: number) {
     await this.exists(id);
-    return this.prisma.user.findUnique({
-      where: {
-        id,
-      },
+    return this.usersRepository.findOneBy({
+      id,
     });
   }
 
@@ -41,17 +52,14 @@ export class UserService {
   ) {
     await this.exists(id);
     password = await bcrypt.hash(password, await bcrypt.genSalt());
-    return this.prisma.user.update({
-      where: {
-        id,
-      },
-      data: {
-        name,
-        email,
-        password,
-        birthAt: birthAt ? new Date(birthAt) : null,
-      },
+    await this.usersRepository.update(id, {
+      name,
+      email,
+      password,
+      birthAt: birthAt ? new Date(birthAt) : null,
     });
+
+    return this.findOne(id);
   }
 
   async updatePartial(
@@ -63,36 +71,34 @@ export class UserService {
     if (name) data.name = name;
     if (email) data.email = email;
     // eslint-disable-next-line prettier/prettier
-    if (password) data.password = await bcrypt.hash(password, await bcrypt.genSalt());
+    if (password)
+      data.password = await bcrypt.hash(password, await bcrypt.genSalt());
     if (birthAt) data.birthAt = new Date(birthAt);
 
-    return this.prisma.user.update({
-      where: {
-        id,
-      },
-      data,
-    });
+    await this.usersRepository.update(id, data);
+
+    return this.findOne(id);
   }
 
   async delete(id: number) {
     await this.exists(id);
 
-    return this.prisma.user.delete({
-      where: {
-        id,
-      },
+    await this.usersRepository.delete({
+      id,
     });
+
+    return { status: true };
   }
 
   async exists(id: number) {
     /* verifica a existência de usuários no banco */
-    const user = await this.prisma.user.count({
-      where: {
-        id,
-      },
+    const user = await this.usersRepository.existsBy({
+      id,
     });
     if (!user) {
       throw new NotFoundException(`O usuário ${id} não existe!`);
     }
+
+    return true;
   }
 }

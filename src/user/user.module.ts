@@ -3,14 +3,18 @@ import {
   Module,
   NestModule,
   RequestMethod,
+  forwardRef,
 } from '@nestjs/common';
 import { UserController } from './user.controller';
-import { PrismaModule } from 'src/prisma/prisma.module';
 import { UserService } from './user.service';
-import { UserCheckIdMiddleware } from 'src/middlewares/user-check-id.middleware';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './entity/user.entity';
+import { UserCheckIdMiddleware } from '../middlewares/user-check-id.middleware';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule],
+  /* forwardRef serve para resolver problemas relacionados à dependência circular */
+  imports: [TypeOrmModule.forFeature([User]), forwardRef(() => AuthModule)],
   controllers: [UserController],
   providers: [UserService],
   exports: [UserService] /* exportando para usar em outro módulo */,
